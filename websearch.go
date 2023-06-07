@@ -4,13 +4,13 @@ import (
 	"database/sql"
 	"log"
 	"net/url"
+	"os"
 	"runtime"
 	"sync"
 	"time"
 
 	"github.com/flofriday/websearch/curate"
 	"github.com/flofriday/websearch/download"
-	"github.com/flofriday/websearch/index"
 	"github.com/flofriday/websearch/model"
 	"github.com/flofriday/websearch/queue"
 	"github.com/flofriday/websearch/store"
@@ -18,16 +18,17 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-func main() {
-	var docLimit int64 = 100
+func index() {
+	var docLimit int64 = 1000
 	numDownloaders := 100
 	numIndexers := runtime.NumCPU()
 
-	discoverQueue := queue.NewChannelQueue[*url.URL](make(chan *url.URL, docLimit))
-	downloadQueue := queue.NewChannelQueue[*model.Target](make(chan *model.Target, numDownloaders*4))
+	discoverQueue := queue.NewChannelQueue[*url.URL](make(chan *url.URL, 100))
+	downloadQueue := queue.NewChannelQueue[*model.Target](make(chan *model.Target, docLimit))
 	documentQueue := queue.NewChannelQueue[*model.Document](make(chan *model.Document, numIndexers*4))
 
-	db, err := sql.Open("sqlite3", "index.db")
+	os.Remove("index.db")
+	db, err := sql.Open("sqlite3", "index.db?_journal=WAL")
 	if err != nil {
 		log.Fatal("Unable to connect to the db!")
 	}
@@ -52,6 +53,7 @@ func main() {
 	}
 
 	var wg sync.WaitGroup
+	startTime := time.Now()
 	wg.Add(1)
 	go func() {
 		curator.Run()
@@ -79,4 +81,15 @@ func main() {
 		}
 	}()
 	wg.Wait()
+
+	log.Println("")
+	cnt, _ := sqlDocumentStore.Count()
+	duration := time.Since(startTime)
+	log.Println(" --- Statistics --- ")
+	log.Printf("Downloaded and indexed %v document in %v\n", cnt, duration)
+	log.Printf("Average time per document: %v\n", time.Duration(int64(duration)/cnt))
+}
+
+func main() {
+	index()
 }

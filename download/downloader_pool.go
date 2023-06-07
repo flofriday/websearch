@@ -69,7 +69,7 @@ func (p *DownloaderPool) downloadLoop() {
 
 		// FIXME: can this fail, if it is not valid utf-8?
 		content := string(body)
-		log.Printf("INFO: Downloaded: %v\n", target.Url.String())
+		//log.Printf("INFO: Downloaded: %v\n", target.Url.String())
 		p.documentQueue.Put(&model.Document{
 			Index:   target.Index,
 			Url:     resp.Request.URL,
