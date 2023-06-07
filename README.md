@@ -11,3 +11,6 @@ go build
 ./websearch index
 ./websearch search "Linux"
 ```
+
+## Architecture
+![Architecture](architecture.png)
