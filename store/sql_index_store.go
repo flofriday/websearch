@@ -80,31 +80,32 @@ func (s *SQLIndexStore) PutAllWords(index int64, words map[string]float64) error
 	return nil
 }
 
-func (s *SQLIndexStore) Get(word string) ([]int64, int64, error) {
+func (s *SQLIndexStore) Get(word string) ([]int64, []float64, error) {
 	rows, err := s.db.Query("SELECT id, frequency FROM index_words WHERE word = ?", word)
 	if err != nil {
-		return nil, 0, err
+		return nil, nil, err
 	}
 	defer rows.Close()
 
 	var indexes []int64
-	var totalFrequency int64
+	var frequencies []float64
 
 	for rows.Next() {
-		var indexID, frequency int64
+		var indexID int64
+		var frequency float64
 
 		err := rows.Scan(&indexID, &frequency)
 		if err != nil {
-			return nil, 0, err
+			return nil, nil, err
 		}
 
 		indexes = append(indexes, indexID)
-		totalFrequency += frequency
+		frequencies = append(frequencies, frequency)
 	}
 
 	if err = rows.Err(); err != nil {
-		return nil, 0, err
+		return nil, nil, err
 	}
 
-	return indexes, totalFrequency, nil
+	return indexes, frequencies, nil
 }

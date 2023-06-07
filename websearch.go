@@ -2,24 +2,29 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"net/url"
 	"os"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/flofriday/websearch/curate"
 	"github.com/flofriday/websearch/download"
+	"github.com/flofriday/websearch/index"
 	"github.com/flofriday/websearch/model"
+	"github.com/flofriday/websearch/query"
 	"github.com/flofriday/websearch/queue"
 	"github.com/flofriday/websearch/store"
 
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/urfave/cli/v2"
 )
 
-func index() {
-	var docLimit int64 = 1000
+func crawlAndIndex(docLimit int64) {
+	//var docLimit int64 = 1000
 	numDownloaders := 100
 	numIndexers := runtime.NumCPU()
 
@@ -90,6 +95,74 @@ func index() {
 	log.Printf("Average time per document: %v\n", time.Duration(int64(duration)/cnt))
 }
 
+func search(queryText string) {
+	db, err := sql.Open("sqlite3", "index.db?_journal=WAL")
+	if err != nil {
+		log.Fatal("Unable to connect to the db!")
+	}
+
+	sqlDocumentStore, err := store.NewSQLDocumentStore(db)
+	if err != nil {
+		log.Fatalf("Unable to connect to the document store '%v'\n", err)
+	}
+	sqlIndexStore, err := store.NewSQLIndexStore(db)
+	if err != nil {
+		log.Fatalf("Unable to connect to the index store '%v'\n", err)
+	}
+
+	queryEngine := &query.QueryEngine{
+		DocumentStore: sqlDocumentStore,
+		IndexStore:    sqlIndexStore,
+	}
+	documents, err := queryEngine.Find(queryText, 6)
+	if err != nil {
+		log.Fatalf("Unable to create result because: '%v'\n", err)
+	}
+
+	for i, doc := range documents {
+		fmt.Printf("%d) %s\n%s\n", i, doc.Title, doc.Url.String())
+		fmt.Println()
+	}
+}
+
 func main() {
-	index()
+	app := &cli.App{
+		Name:  "websearch",
+		Usage: "A search engine for the web, just for fun 🥳",
+		Commands: []*cli.Command{
+			{
+				Name:  "index",
+				Usage: "build an index",
+				Flags: []cli.Flag{
+					&cli.Int64Flag{
+						Name:  "number",
+						Value: 1000,
+						Usage: "The number of documents to index",
+					},
+				},
+				Action: func(cCtx *cli.Context) error {
+					crawlAndIndex(cCtx.Int64("number"))
+					return nil
+				},
+			},
+			{
+				Name:      "search",
+				Usage:     "search the index from the command line",
+				ArgsUsage: "query",
+				Action: func(cCtx *cli.Context) error {
+					if len(cCtx.Args().Slice()) == 0 {
+						fmt.Fprintln(os.Stderr, "usage: websearch search query")
+						fmt.Fprintln(os.Stderr, "Run 'websearch search --help' for more infos.")
+						return nil
+					}
+					search(strings.Join(cCtx.Args().Slice(), " "))
+					return nil
+				},
+			},
+		},
+	}
+
+	if err := app.Run(os.Args); err != nil {
+		log.Fatal(err)
+	}
 }
