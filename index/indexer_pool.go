@@ -18,7 +18,7 @@ type IndexerPool struct {
 	documentQueue queue.Queue[*model.Document]
 	documentStore store.DocumentStore
 	indexStore    store.IndexStore
-	workerCount   int64
+	workerCount   int
 }
 
 func NewIndexerPool(
@@ -26,7 +26,7 @@ func NewIndexerPool(
 	documentQueue queue.Queue[*model.Document],
 	documentStore store.DocumentStore,
 	indexStore store.IndexStore,
-	workerCount int64,
+	workerCount int,
 ) *IndexerPool {
 	return &IndexerPool{
 		discoverQueue: discoverQueue,
@@ -39,7 +39,7 @@ func NewIndexerPool(
 
 func (p *IndexerPool) Run() {
 	var wg sync.WaitGroup
-	for i := 0; i < int(p.workerCount); i++ {
+	for i := 0; i < p.workerCount; i++ {
 		wg.Add(1)
 		go func() {
 			p.indexLoop()
@@ -47,6 +47,8 @@ func (p *IndexerPool) Run() {
 		}()
 	}
 	wg.Wait()
+	log.Println("IndexerPool Done")
+	p.discoverQueue.Close()
 }
 
 func (p *IndexerPool) indexLoop() {
@@ -62,9 +64,14 @@ func (p *IndexerPool) indexLoop() {
 			continue
 		}
 
+		documentView.Index = document.Index
 		documentView.Url = document.Url
 		documentView.Icon = nil
-		p.documentStore.Put(documentView)
+		err = p.documentStore.Put(documentView)
+		if err != nil {
+			log.Printf("WARNING: Unable to store doc %v because '%v'", documentView, err.Error())
+			continue
+		}
 
 		for _, link := range links {
 			tmpUrl, err := url.Parse(link)

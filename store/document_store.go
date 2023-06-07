@@ -6,4 +6,5 @@ type DocumentStore interface {
 	Put(*model.DocumentView) error
 	Get(index int64) (*model.DocumentView, error)
 	GetAll(index []int64) ([]*model.DocumentView, error)
+	Count() (int64, error)
 }

@@ -15,14 +15,14 @@ type DownloaderPool struct {
 	downloadQueue queue.Queue[*model.Target]
 	discoverQueue queue.Queue[*url.URL]
 	documentQueue queue.Queue[*model.Document]
-	workerCount   int64
+	workerCount   int
 }
 
 func NewDownloaderPool(
 	discoverQueue queue.Queue[*url.URL],
 	downloadQueue queue.Queue[*model.Target],
 	documentQueue queue.Queue[*model.Document],
-	workerCount int64,
+	workerCount int,
 ) *DownloaderPool {
 	return &DownloaderPool{
 		downloadQueue: downloadQueue,
@@ -34,7 +34,7 @@ func NewDownloaderPool(
 
 func (p *DownloaderPool) Run() {
 	var wg sync.WaitGroup
-	for i := 0; i < int(p.workerCount); i++ {
+	for i := 0; i < p.workerCount; i++ {
 		wg.Add(1)
 		go func() {
 			p.downloadLoop()
@@ -43,7 +43,7 @@ func (p *DownloaderPool) Run() {
 	}
 	wg.Wait()
 	p.documentQueue.Close()
-	log.Println("DownloadPool done")
+	log.Println("DownloadPool Done")
 }
 
 func (p *DownloaderPool) downloadLoop() {

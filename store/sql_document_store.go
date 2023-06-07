@@ -123,3 +123,15 @@ func (s *SQLDocumentStore) createTables() error {
 
 	return nil
 }
+
+func (s *SQLDocumentStore) Count() (int64, error) {
+	row := s.db.QueryRow("SELECT COUNT(*) FROM documents")
+
+	var count int64
+	err := row.Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}

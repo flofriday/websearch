@@ -19,9 +19,13 @@ import (
 )
 
 func main() {
-	discoverQueue := queue.NewChannelQueue[*url.URL](make(chan *url.URL, 10_000))
-	downloadQueue := queue.NewChannelQueue[*model.Target](make(chan *model.Target, 100))
-	documentQueue := queue.NewChannelQueue[*model.Document](make(chan *model.Document, 100))
+	var docLimit int64 = 100
+	numDownloaders := 100
+	numIndexers := runtime.NumCPU()
+
+	discoverQueue := queue.NewChannelQueue[*url.URL](make(chan *url.URL, docLimit))
+	downloadQueue := queue.NewChannelQueue[*model.Target](make(chan *model.Target, numDownloaders*4))
+	documentQueue := queue.NewChannelQueue[*model.Document](make(chan *model.Document, numIndexers*4))
 
 	db, err := sql.Open("sqlite3", "index.db")
 	if err != nil {
@@ -37,9 +41,9 @@ func main() {
 		log.Fatalf("Unable to connect to the index store '%v'\n", err)
 	}
 
-	curator := curate.NewCurator(discoverQueue, downloadQueue)
-	downloaderPool := download.NewDownloaderPool(discoverQueue, downloadQueue, documentQueue, 10)
-	indexerPool := index.NewIndexerPool(discoverQueue, documentQueue, sqlDocumentStore, sqlIndexStore, int64(runtime.NumCPU()))
+	curator := curate.NewCurator(discoverQueue, downloadQueue, docLimit)
+	downloaderPool := download.NewDownloaderPool(discoverQueue, downloadQueue, documentQueue, numDownloaders)
+	indexerPool := index.NewIndexerPool(discoverQueue, documentQueue, sqlDocumentStore, sqlIndexStore, numIndexers)
 
 	seed := []string{"https://en.wikipedia.org/wiki/SerenityOS"}
 	for _, item := range seed {
@@ -66,10 +70,11 @@ func main() {
 
 	go func() {
 		for {
+			cnt, _ := sqlDocumentStore.Count()
 			s1, _ := discoverQueue.Size()
 			s2, _ := downloadQueue.Size()
 			s3, _ := documentQueue.Size()
-			log.Printf("DisQ: %v, TarQ: %v, DocQ: %v", s1, s2, s3)
+			log.Printf("Completed: %v, DisQ: %v, TarQ: %v, DocQ: %v", cnt, s1, s2, s3)
 			time.Sleep(time.Millisecond * 1000)
 		}
 	}()
