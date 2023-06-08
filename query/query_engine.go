@@ -4,6 +4,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/flofriday/websearch/fp"
 	"github.com/flofriday/websearch/model"
 	"github.com/flofriday/websearch/store"
 )
@@ -13,16 +14,22 @@ type QueryEngine struct {
 	DocumentStore store.DocumentStore
 }
 
+type QueryResult struct {
+	Documents []*model.DocumentView
+	TotalDocs int64
+}
+
 //queryEngine := query.NewQueryEngine(sqlIndexStore, sqlDocumentStore)
 //documents := queryEngine.find(query)
 
-type RankedIndex struct {
-	Index int64
-	Rank  float64
+type rankedIndex struct {
+	index int64
+	rank  float64
 }
 
-func (e *QueryEngine) Find(text string, number int) ([]*model.DocumentView, error) {
+func (e *QueryEngine) Find(text string, number int) (*QueryResult, error) {
 	words := strings.Split(text, " ")
+	words = fp.Map(words, Normalize)
 
 	indexRanks := map[int64]float64{}
 	for _, word := range words {
@@ -39,41 +46,32 @@ func (e *QueryEngine) Find(text string, number int) ([]*model.DocumentView, erro
 		}
 	}
 
-	rankedDocs := []RankedIndex{}
+	// FIXME: Well, the internet does have more than 2,147,483,647 pages
+	totalDocs := int64(len(indexRanks))
+
+	rankedDocs := []rankedIndex{}
 	for k, v := range indexRanks {
-		rankedDocs = append(rankedDocs, RankedIndex{Index: k, Rank: v})
+		rankedDocs = append(rankedDocs, rankedIndex{index: k, rank: v})
 	}
 	sort.Slice(rankedDocs, func(i, j int) bool {
-		return rankedDocs[i].Rank > rankedDocs[j].Rank
+		return rankedDocs[i].rank > rankedDocs[j].rank
 	})
 
 	if len(rankedDocs) > number {
 		rankedDocs = rankedDocs[:number]
 	}
 
-	/*docs, err := e.DocumentStore.GetAll(
-		mapSlice(rankedDocs, func(d RankedIndex) int64 { return d.Index }),
-	)
-	if err != nil {
-		return nil, err
-	}*/
-
 	docs := []*model.DocumentView{}
 	for _, rankedIndex := range rankedDocs {
-		doc, err := e.DocumentStore.Get(rankedIndex.Index)
+		doc, err := e.DocumentStore.Get(rankedIndex.index)
 		if err != nil {
 			return nil, err
 		}
 		docs = append(docs, doc)
 	}
 
-	return docs, nil
-}
-
-func mapSlice[T any, M any](a []T, f func(T) M) []M {
-	n := make([]M, len(a))
-	for i, e := range a {
-		n[i] = f(e)
-	}
-	return n
+	return &QueryResult{
+		Documents: docs,
+		TotalDocs: totalDocs,
+	}, nil
 }

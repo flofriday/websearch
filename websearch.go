@@ -114,13 +114,17 @@ func search(queryText string) {
 		DocumentStore: sqlDocumentStore,
 		IndexStore:    sqlIndexStore,
 	}
-	documents, err := queryEngine.Find(queryText, 6)
+
+	queryResult, err := queryEngine.Find(queryText, 6)
 	if err != nil {
 		log.Fatalf("Unable to create result because: '%v'\n", err)
 	}
 
-	for i, doc := range documents {
-		fmt.Printf("%d) %s\n%s\n", i, doc.Title, doc.Url.String())
+	fmt.Printf("Found %v results for \"%v\"\n", queryResult.TotalDocs, queryText)
+	fmt.Println()
+
+	for i, doc := range queryResult.Documents {
+		fmt.Printf("%d) %s\n%s\n", i+1, doc.Title, doc.Url.String())
 		fmt.Println()
 	}
 }

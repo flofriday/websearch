@@ -6,6 +6,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.17
 	github.com/urfave/cli/v2 v2.25.5
 	golang.org/x/net v0.10.0
+	golang.org/x/text v0.9.0
 )
 
 require (

@@ -8,7 +8,9 @@ import (
 
 	"golang.org/x/net/html"
 
+	"github.com/flofriday/websearch/fp"
 	"github.com/flofriday/websearch/model"
+	"github.com/flofriday/websearch/query"
 	"github.com/flofriday/websearch/queue"
 	"github.com/flofriday/websearch/store"
 )
@@ -86,8 +88,9 @@ func (p *IndexerPool) indexLoop() {
 			p.discoverQueue.Put(absoluteUrl)
 		}
 
-		abc := tf_idf(words)
-		p.indexStore.PutAllWords(document.Index, abc)
+		words = fp.Map(words, query.Normalize)
+		frequencies := tf_idf(words)
+		p.indexStore.PutAllWords(document.Index, frequencies)
 	}
 }
 

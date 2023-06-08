@@ -18,9 +18,11 @@ type Curator struct {
 
 func NewCurator(input queue.Queue[*url.URL], output queue.Queue[*model.Target], limit int64) *Curator {
 	return &Curator{
-		input:  input,
-		output: output,
-		limit:  limit,
+		input:     input,
+		output:    output,
+		seenURLs:  map[string]bool{},
+		idCounter: 0,
+		limit:     limit,
 	}
 }
 
@@ -36,6 +38,7 @@ func (c *Curator) Run() {
 			// Already seen
 			continue
 		}
+		c.seenURLs[url.String()] = true
 
 		// FIXME: Add additional url filters here
 
