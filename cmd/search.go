@@ -9,8 +9,8 @@ import (
 	"github.com/flofriday/websearch/store"
 )
 
-func Search(queryText string) {
-	db, err := sql.Open("sqlite3", "index.db?_journal=WAL")
+func Search(sqliteFile string, queryText string) {
+	db, err := sql.Open("sqlite3", sqliteFile+"?_journal=WAL")
 	if err != nil {
 		log.Fatal("Unable to connect to the db!")
 	}

@@ -21,21 +21,39 @@ func main() {
 				Usage: "build an index",
 				Flags: []cli.Flag{
 					&cli.Int64Flag{
-						Name:  "number",
-						Value: 1000,
-						Usage: "The number of documents to index",
+						Name:    "number",
+						Aliases: []string{"n"},
+						Value:   1000,
+						Usage:   "The number of documents to index",
+					},
+					&cli.StringFlag{
+						Name:  "sqlite",
+						Value: ".index.db",
+						Usage: "Path of the sqlite file",
 					},
 				},
 				Action: func(cCtx *cli.Context) error {
-					cmd.CrawlAndIndex(cCtx.Int64("number"))
+					cmd.CrawlAndIndex(cCtx.Int64("number"), cCtx.String("sqlite"))
 					return nil
 				},
 			},
 			{
 				Name:  "server",
 				Usage: "search the index from the comfort of your browser",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  "addr",
+						Value: ":8080",
+						Usage: "Port and IP to listen at",
+					},
+					&cli.StringFlag{
+						Name:  "sqlite",
+						Value: ".index.db",
+						Usage: "Path of the sqlite file",
+					},
+				},
 				Action: func(cCtx *cli.Context) error {
-					cmd.Serve()
+					cmd.Serve(cCtx.String("addr"), cCtx.String("sqlite"))
 					return nil
 				},
 			},
@@ -43,13 +61,20 @@ func main() {
 				Name:      "search",
 				Usage:     "search the index from the command line",
 				ArgsUsage: "query",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  "sqlite",
+						Value: ".index.db",
+						Usage: "Path of the sqlite file",
+					},
+				},
 				Action: func(cCtx *cli.Context) error {
 					if len(cCtx.Args().Slice()) == 0 {
 						fmt.Fprintln(os.Stderr, "usage: websearch search query")
 						fmt.Fprintln(os.Stderr, "Run 'websearch search --help' for more infos.")
 						return nil
 					}
-					cmd.Search(strings.Join(cCtx.Args().Slice(), " "))
+					cmd.Search(cCtx.String("sqlite"), strings.Join(cCtx.Args().Slice(), " "))
 					return nil
 				},
 			},

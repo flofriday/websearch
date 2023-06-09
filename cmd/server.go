@@ -32,10 +32,10 @@ func mainHandler(queryEngine *query.QueryEngine) func(*fiber.Ctx) error {
 	}
 }
 
-func Serve() {
+func Serve(addr string, sqliteFile string) {
 
 	// Setup the dependencies
-	db, err := sql.Open("sqlite3", "index.db?_journal=WAL")
+	db, err := sql.Open("sqlite3", sqliteFile+"?_journal=WAL")
 	if err != nil {
 		log.Fatal("Unable to connect to the db!")
 	}
@@ -63,5 +63,5 @@ func Serve() {
 
 	app.Get("/", mainHandler(queryEngine))
 	app.Static("/static", "./web/static")
-	app.Listen(":8080")
+	app.Listen(addr)
 }

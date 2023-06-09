@@ -17,7 +17,7 @@ import (
 	"github.com/flofriday/websearch/store"
 )
 
-func CrawlAndIndex(docLimit int64) {
+func CrawlAndIndex(docLimit int64, sqliteFile string) {
 	//var docLimit int64 = 1000
 	numDownloaders := 100
 	numIndexers := runtime.NumCPU()
@@ -26,8 +26,8 @@ func CrawlAndIndex(docLimit int64) {
 	downloadQueue := queue.NewChannelQueue[*model.Target](make(chan *model.Target, docLimit))
 	documentQueue := queue.NewChannelQueue[*model.Document](make(chan *model.Document, numIndexers*4))
 
-	os.Remove("index.db")
-	db, err := sql.Open("sqlite3", "index.db?_journal=WAL")
+	os.Remove(sqliteFile)
+	db, err := sql.Open("sqlite3", sqliteFile+"?_journal=WAL")
 	if err != nil {
 		log.Fatal("Unable to connect to the db!")
 	}
