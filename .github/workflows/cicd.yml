@@ -7,7 +7,6 @@ on:
     branches: [ "*" ]
 
 jobs:
-
   test:
     runs-on: ubuntu-latest
     steps:
@@ -28,17 +27,15 @@ jobs:
     if: ${{ github.ref_name == 'main' }}
     needs: test
     runs-on: ubuntu-latest
-    
-    steps: 
-    - name: Deploy
-      uses: appleboy/ssh-action@v0.1.10
+    steps:
+    - name: deploy on production server
+      uses: appleboy/ssh-action@master
       with:
-        host: "${{ secrets.HOST }}"
+        host: ${{ secrets.HOST }}
         username: ${{ secrets.USERNAME }}
         password: ${{ secrets.PASSWORD }}
         port: ${{ secrets.PORT }}
         script_stop: true
-        debug: true
         script: whoami
 #          cd websearch
 #          git pull
