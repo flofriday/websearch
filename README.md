@@ -12,5 +12,26 @@ go build
 ./websearch search "Linux"
 ```
 
+## Build with docker
+
+```
+# Build the image
+docker build -t "websearch" .
+
+# Build the index
+docker volume create websearch_index
+docker run \
+    --rm \
+    --mount source=websearch_index,target=/app/data \
+    websearch index --sqlite data/index.db
+
+# Serve the index 
+docker run \
+    --rm \
+    -p 8080:8080 \
+    --mount source=websearch_index,target=/app/data \
+    websearch server --sqlite data/index.db
+```
+
 ## Architecture
 ![Architecture](architecture.png)
