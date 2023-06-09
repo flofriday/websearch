@@ -7,36 +7,47 @@ on:
     branches: [ "*" ]
 
 jobs:
-  test:
+  ssh:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-
-    - name: Set up Go
-      uses: actions/setup-go@v3
+    - uses: appleboy/ssh-action@v0.1.10
       with:
-        go-version: "1.20"
-
-    - name: Build
-      run: go build -v ./...
-
-    - name: Test
-      run: go test -v ./...
-
-  deploy:
-    if: ${{ github.ref_name == 'main' }}
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-    - name: deploy on production server
-      uses: appleboy/ssh-action@v0.1.9
-      with:
-        host: 209.38.246.146
+        host: "209.38.246.146"
         username: ${{ secrets.USERNAME }}
         password: ${{ secrets.PASSWORD }}
-        port: ${{ secrets.PORT }}
         script_stop: true
         script: whoami
+
+  # test:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - uses: actions/checkout@v3
+
+  #   - name: Set up Go
+  #     uses: actions/setup-go@v3
+  #     with:
+  #       go-version: "1.20"
+
+  #   - name: Build
+  #     run: go build -v ./...
+
+  #   - name: Test
+  #     run: go test -v ./...
+
+  # deploy:
+  #   if: ${{ github.ref_name == 'main' }}
+  #   needs: test
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - name: deploy on production server
+  #     uses: appleboy/ssh-action@v0.1.9
+  #     with:
+  #       host: 209.38.246.146
+  #       username: ${{ secrets.USERNAME }}
+  #       password: ${{ secrets.PASSWORD }}
+  #       port: ${{ secrets.PORT }}
+  #       script_stop: true
+  #       script: whoami
 #          cd websearch
 #          git pull
 #          docker build -t "websearch" .
