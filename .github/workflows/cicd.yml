@@ -48,6 +48,7 @@ jobs:
           docker run --rm --mount source=websearch_index,target=/data  busybox mv data/new_index.db data/index.db
           docker run \
             --rm \
+            --detach \
             -p 8080:8080 \
             --mount source=websearch_index,target=/app/data \
             websearch server --sqlite data/index.db
