@@ -59,6 +59,7 @@ func (c *Curator) Run() {
 	}
 
 	// Close the output queue because we have submitted enough documents
+	log.Println("Close download queue")
 	c.output.Close()
 
 	// Keep draining the discover queue

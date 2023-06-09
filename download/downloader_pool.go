@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
+	"time"
 
 	"github.com/flofriday/websearch/model"
 	"github.com/flofriday/websearch/queue"
@@ -46,16 +47,26 @@ func (p *DownloaderPool) Run() {
 	log.Println("DownloadPool Done")
 }
 
+func (p *DownloaderPool) newClient() *http.Client {
+	// FIXME: We should somehow tell the curator that we had a redirect and not
+	// issue this final URL again.
+	// Also maybe we already have downloaded the final destination.
+	return &http.Client{
+		Jar:     nil,
+		Timeout: 5 * time.Second,
+	}
+}
+
 func (p *DownloaderPool) downloadLoop() {
+	client := p.newClient()
+
 	for {
 		target, err := p.downloadQueue.Get()
 		if err != nil {
 			break
 		}
 
-		// FIXME: is a client faster?
-		// FIXME: there are also redirects which we should try to fix
-		resp, err := http.Get(target.Url.String())
+		resp, err := client.Get(target.Url.String())
 		if err != nil {
 			log.Printf("WARNING: Could not download: %v\n", target.Url.String())
 			continue
@@ -69,7 +80,6 @@ func (p *DownloaderPool) downloadLoop() {
 
 		// FIXME: can this fail, if it is not valid utf-8?
 		content := string(body)
-		//log.Printf("INFO: Downloaded: %v\n", target.Url.String())
 		p.documentQueue.Put(&model.Document{
 			Index:   target.Index,
 			Url:     resp.Request.URL,

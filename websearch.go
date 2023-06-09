@@ -28,7 +28,7 @@ func main() {
 					},
 					&cli.StringFlag{
 						Name:  "sqlite",
-						Value: ".index.db",
+						Value: "index.db",
 						Usage: "Path of the sqlite file",
 					},
 				},
@@ -48,7 +48,7 @@ func main() {
 					},
 					&cli.StringFlag{
 						Name:  "sqlite",
-						Value: ".index.db",
+						Value: "index.db",
 						Usage: "Path of the sqlite file",
 					},
 				},
@@ -64,7 +64,7 @@ func main() {
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:  "sqlite",
-						Value: ".index.db",
+						Value: "index.db",
 						Usage: "Path of the sqlite file",
 					},
 				},

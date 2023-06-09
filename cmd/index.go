@@ -18,10 +18,10 @@ import (
 )
 
 func CrawlAndIndex(docLimit int64, sqliteFile string) {
-	//var docLimit int64 = 1000
 	numDownloaders := 100
 	numIndexers := runtime.NumCPU()
 
+	// Setup the dependencies
 	discoverQueue := queue.NewChannelQueue[*url.URL](make(chan *url.URL, 100))
 	downloadQueue := queue.NewChannelQueue[*model.Target](make(chan *model.Target, docLimit))
 	documentQueue := queue.NewChannelQueue[*model.Document](make(chan *model.Document, numIndexers*4))
@@ -45,42 +45,44 @@ func CrawlAndIndex(docLimit int64, sqliteFile string) {
 	downloaderPool := download.NewDownloaderPool(discoverQueue, downloadQueue, documentQueue, numDownloaders)
 	indexerPool := index.NewIndexerPool(discoverQueue, documentQueue, sqlDocumentStore, sqlIndexStore, numIndexers)
 
+	// Insert the seed into the discoverQueue
 	seed := []string{"https://en.wikipedia.org/wiki/SerenityOS"}
 	for _, item := range seed {
 		url, _ := url.Parse(item)
 		discoverQueue.Put(url)
 	}
 
-	var wg sync.WaitGroup
+	// Start the internal curate-download-index pipeline
 	startTime := time.Now()
-	wg.Add(1)
+	var wg sync.WaitGroup
+	wg.Add(3)
 	go func() {
 		curator.Run()
 		wg.Done()
 	}()
-	wg.Add(1)
 	go func() {
 		downloaderPool.Run()
 		wg.Done()
 	}()
-	wg.Add(1)
 	go func() {
 		indexerPool.Run()
 		wg.Done()
 	}()
 
+	// Log the status every second, until we hit the limit
 	go func() {
 		for {
 			cnt, _ := sqlDocumentStore.Count()
 			s1, _ := discoverQueue.Size()
 			s2, _ := downloadQueue.Size()
 			s3, _ := documentQueue.Size()
-			log.Printf("Completed: %v, DisQ: %v, TarQ: %v, DocQ: %v", cnt, s1, s2, s3)
+			log.Printf("Completed: %v, DiscoverQ: %v, DownloadQ: %v, DocumentQ: %v", cnt, s1, s2, s3)
 			time.Sleep(time.Millisecond * 1000)
 		}
 	}()
 	wg.Wait()
 
+	// Print the final statistics
 	log.Println("")
 	cnt, _ := sqlDocumentStore.Count()
 	duration := time.Since(startTime)
