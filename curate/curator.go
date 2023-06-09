@@ -3,14 +3,18 @@ package curate
 import (
 	"log"
 	"net/url"
+	"strings"
 
 	"github.com/flofriday/websearch/model"
 	"github.com/flofriday/websearch/queue"
 )
 
 type Curator struct {
-	input     queue.Queue[*url.URL]
-	output    queue.Queue[*model.Target]
+	input  queue.Queue[*url.URL]
+	output queue.Queue[*model.Target]
+
+	// FIXME: If that ever becomes a bottle-neck, a tries datastucture would fit
+	// quite nice for this usecase.
 	seenURLs  map[string]bool
 	idCounter int64
 	limit     int64
@@ -26,12 +30,30 @@ func NewCurator(input queue.Queue[*url.URL], output queue.Queue[*model.Target], 
 	}
 }
 
+// Removes part of the url which should not make a difference for our usecase
+func normalize(link *url.URL) *url.URL {
+	link.Fragment = ""
+	link.Path = strings.TrimRight(link.Path, "/")
+	return link
+}
+
+// Filters the url, wether it should be blocked or not
+func isUseful(link *url.URL) bool {
+	// FIXME: Implement filtering, like images, etc
+	return true
+}
+
 func (c *Curator) Run() {
 	for {
 		url, err := c.input.Get()
 		if err != nil {
 			log.Println("Curator is exiting, discoverqueue broken")
 			break
+		}
+		url = normalize(url)
+
+		if !isUseful(url) {
+			continue
 		}
 
 		if _, ok := c.seenURLs[url.String()]; ok {
