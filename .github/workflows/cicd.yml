@@ -40,7 +40,7 @@ jobs:
          git pull
          docker build -t "websearch" .
          docker run \
-           --rm \ 
+           --rm \
            --mount source=websearch_index,target=/app/data \
            websearch index --sqlite data/new_index.db
          docker stop  websearch || true
@@ -48,6 +48,7 @@ jobs:
          docker run \
            --rm \
            --detach \
+           --name websearch \
            -p 8080:8080 \
            --mount source=websearch_index,target=/app/data \
            websearch server --sqlite data/index.db
