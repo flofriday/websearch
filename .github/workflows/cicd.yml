@@ -32,10 +32,11 @@ jobs:
     - name: Deploy
       uses: appleboy/ssh-action@v0.1.10
       with:
-        host: ${{ secrets.HOST }}
+        host: "${{ secrets.HOST }}"
         username: ${{ secrets.USERNAME }}
         password: ${{ secrets.PASSWORD }}
         port: ${{ secrets.PORT }}
+        script_stop: true
         script: |
           cd websearch
           git pull
