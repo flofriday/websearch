@@ -10,6 +10,9 @@ jobs:
   ssh:
     runs-on: ubuntu-latest
     steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
     - uses: appleboy/ssh-action@v0.1.10
       with:
         host: "209.38.246.146"
