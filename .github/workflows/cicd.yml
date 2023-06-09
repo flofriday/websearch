@@ -17,8 +17,8 @@ jobs:
       with:
         host: 209.38.246.146
         username: ${{ secrets.USERNAME }}
-        #password: ${{ secrets.PASSWORD }}
-        key: ${{ secrets.KEY }}
+        password: ${{ secrets.PASSWORD }}
+        #key: ${{ secrets.KEY }}
         script_stop: true
         script: whoami
 
