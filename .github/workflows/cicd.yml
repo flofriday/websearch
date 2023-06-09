@@ -25,6 +25,7 @@ jobs:
       run: go test -v ./...
 
   deploy:
+    if: ${{ github.ref_name == 'main' }}
     needs: test
     runs-on: ubuntu-latest
     
@@ -37,22 +38,23 @@ jobs:
         password: ${{ secrets.PASSWORD }}
         port: ${{ secrets.PORT }}
         script_stop: true
-        script: |
-          cd websearch
-          git pull
-          docker build -t "websearch" .
-          docker run \
-            --rm \ 
-            --mount source=websearch_index,target=/app/data \
-            websearch index --sqlite data/new_index.db
-          docker stop  websearch || true
-          docker run --rm --mount source=websearch_index,target=/data  busybox mv data/new_index.db data/index.db
-          docker run \
-            --rm \
-            --detach \
-            -p 8080:8080 \
-            --mount source=websearch_index,target=/app/data \
-            websearch server --sqlite data/index.db
+        debug: true
+        script: whoami
+#          cd websearch
+#          git pull
+#          docker build -t "websearch" .
+#          docker run \
+#            --rm \ 
+#            --mount source=websearch_index,target=/app/data \
+#            websearch index --sqlite data/new_index.db
+#          docker stop  websearch || true
+#          docker run --rm --mount source=websearch_index,target=/data  busybox mv data/new_index.db data/index.db
+#          docker run \
+#            --rm \
+#            --detach \
+#            -p 8080:8080 \
+#            --mount source=websearch_index,target=/app/data \
+#            websearch server --sqlite data/index.db
             
           
           
