@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"runtime/pprof"
 	"strings"
 
 	"github.com/flofriday/websearch/cmd"
@@ -31,8 +32,22 @@ func main() {
 						Value: "./index.db",
 						Usage: "Path of the sqlite file",
 					},
+					&cli.BoolFlag{
+						Name:  "profile",
+						Value: false,
+						Usage: "Start a cpu profile",
+					},
 				},
 				Action: func(cCtx *cli.Context) error {
+					if cCtx.Bool("profile") {
+						f, err := os.Create("cpu.prof")
+						if err != nil {
+							log.Fatal(err)
+						}
+						pprof.StartCPUProfile(f)
+						defer pprof.StopCPUProfile()
+					}
+
 					cmd.CrawlAndIndex(cCtx.Int64("number"), cCtx.String("sqlite"))
 					return nil
 				},

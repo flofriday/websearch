@@ -27,7 +27,7 @@ func CrawlAndIndex(docLimit int64, sqliteFile string) {
 	documentQueue := queue.NewChannelQueue[*model.Document](make(chan *model.Document, numIndexers*4))
 
 	os.Remove(sqliteFile)
-	db, err := sql.Open("sqlite3", sqliteFile+"?_journal=WAL")
+	db, err := sql.Open("sqlite3", sqliteFile+"?_journal=WAL&_synchronous=OFF")
 	if err != nil {
 		log.Fatal("Unable to connect to the db!")
 	}
@@ -46,7 +46,7 @@ func CrawlAndIndex(docLimit int64, sqliteFile string) {
 	indexerPool := index.NewIndexerPool(discoverQueue, documentQueue, sqlDocumentStore, sqlIndexStore, numIndexers)
 
 	// Insert the seed into the discoverQueue
-	seed := []string{"https://en.wikipedia.org/wiki/SerenityOS"}
+	seed := []string{"https://news.orf.at/"}
 	for _, item := range seed {
 		url, _ := url.Parse(item)
 		discoverQueue.Put(url)
@@ -88,5 +88,7 @@ func CrawlAndIndex(docLimit int64, sqliteFile string) {
 	duration := time.Since(startTime)
 	log.Println(" --- Statistics --- ")
 	log.Printf("Downloaded and indexed %v document in %v\n", cnt, duration)
-	log.Printf("Average time per document: %v\n", time.Duration(int64(duration)/cnt))
+	if cnt > 0 {
+		log.Printf("Average time per document: %v\n", time.Duration(int64(duration)/cnt))
+	}
 }

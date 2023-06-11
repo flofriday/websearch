@@ -19,9 +19,6 @@ type QueryResult struct {
 	TotalDocs int64
 }
 
-//queryEngine := query.NewQueryEngine(sqlIndexStore, sqlDocumentStore)
-//documents := queryEngine.find(query)
-
 type rankedIndex struct {
 	index int64
 	rank  float64
@@ -61,13 +58,11 @@ func (e *QueryEngine) Find(text string, number int) (*QueryResult, error) {
 		rankedDocs = rankedDocs[:number]
 	}
 
-	docs := []*model.DocumentView{}
-	for _, rankedIndex := range rankedDocs {
-		doc, err := e.DocumentStore.Get(rankedIndex.index)
-		if err != nil {
-			return nil, err
-		}
-		docs = append(docs, doc)
+	docs, err := e.DocumentStore.GetAll(
+		fp.Map(rankedDocs, func(i rankedIndex) int64 { return i.index }),
+	)
+	if err != nil {
+		return nil, err
 	}
 
 	return &QueryResult{

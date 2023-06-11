@@ -5,7 +5,9 @@ import (
 )
 
 type SQLIndexStore struct {
-	db *sql.DB
+	db      *sql.DB
+	putStmt *sql.Stmt
+	getStmt *sql.Stmt
 }
 
 func NewSQLIndexStore(db *sql.DB) (*SQLIndexStore, error) {
@@ -18,6 +20,9 @@ func NewSQLIndexStore(db *sql.DB) (*SQLIndexStore, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	store.putStmt, err = db.Prepare("INSERT INTO index_words (id, word, frequency) VALUES (?, ?, ?)")
+	store.getStmt, err = db.Prepare("SELECT id, frequency FROM index_words WHERE word = ?")
 
 	return store, nil
 }
@@ -42,7 +47,7 @@ func (s *SQLIndexStore) createTables() error {
 }
 
 func (s *SQLIndexStore) PutWord(index int64, word string, frequency float64) error {
-	_, err := s.db.Exec("INSERT INTO index_words (id, word, frequency) VALUES (?, ?, ?)", index, word, frequency)
+	_, err := s.db.Exec("", index, word, frequency)
 	if err != nil {
 		return err
 	}
@@ -56,6 +61,7 @@ func (s *SQLIndexStore) PutAllWords(index int64, words map[string]float64) error
 		return err
 	}
 
+	//stmt := tx.Stmt(s.putStmt)
 	stmt, err := tx.Prepare("INSERT INTO index_words (id, word, frequency) VALUES (?, ?, ?)")
 	if err != nil {
 		tx.Rollback()
@@ -81,7 +87,7 @@ func (s *SQLIndexStore) PutAllWords(index int64, words map[string]float64) error
 }
 
 func (s *SQLIndexStore) Get(word string) ([]int64, []float64, error) {
-	rows, err := s.db.Query("SELECT id, frequency FROM index_words WHERE word = ?", word)
+	rows, err := s.getStmt.Query(word)
 	if err != nil {
 		return nil, nil, err
 	}
