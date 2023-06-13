@@ -46,7 +46,7 @@ func CrawlAndIndex(docLimit int64, sqliteFile string) {
 	indexerPool := index.NewIndexerPool(discoverQueue, documentQueue, sqlDocumentStore, sqlIndexStore, numIndexers)
 
 	// Insert the seed into the discoverQueue
-	seed := []string{"https://news.orf.at/"}
+	seed := []string{"https://en.wikipedia.org/wiki/Computer"}
 	for _, item := range seed {
 		url, _ := url.Parse(item)
 		discoverQueue.Put(url)
