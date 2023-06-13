@@ -4,9 +4,19 @@
 
 Let's build a search engine for the web, just for fun. 🥳
 
+## Features
+
+- Crawling, searching and a web server
+- Single Sqlite file to store the index
+- Result ranking (just query to docuemnt match)
+- Possible to index 1k pages in 10sec.
+
+And many more are planned ^^
+
 ## Build it yourself
 
-You need [golang](https://go.dev/) and [node](https://nodejs.org/en) to build this project.
+You need [golang](https://go.dev/) and [node](https://nodejs.org/en) to build 
+this project.
 
 ```
 npm install
@@ -44,3 +54,4 @@ docker run \
 
 ## Architecture
 ![Architecture](architecture.png)
+
