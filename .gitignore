@@ -2,3 +2,7 @@
 index.db*
 websearch
 websearch.exe
+*.prof
+node_modules/
+
+web/static/style.css

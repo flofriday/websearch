@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/flofriday/websearch/model"
 	"github.com/flofriday/websearch/query"
 	"github.com/flofriday/websearch/store"
 
@@ -13,6 +14,13 @@ import (
 )
 
 func mainHandler(queryEngine *query.QueryEngine) func(*fiber.Ctx) error {
+	type resultData struct {
+		Documents []*model.DocumentView
+		TotalDocs int64
+		//Time      time.Time
+		Query string
+	}
+
 	return func(c *fiber.Ctx) error {
 		query := c.Query("q", "")
 
@@ -26,9 +34,14 @@ func mainHandler(queryEngine *query.QueryEngine) func(*fiber.Ctx) error {
 		if err != nil {
 			return c.Status(500).SendString(fmt.Sprintf("Could not load results: '%v'", err))
 		}
+		data := resultData{
+			Documents: queryResult.Documents,
+			TotalDocs: queryResult.TotalDocs,
+			Query:     query,
+		}
 
 		// Render the Results
-		return c.Render("results", queryResult)
+		return c.Render("results", data)
 	}
 }
 
@@ -56,6 +69,7 @@ func Serve(addr string, sqliteFile string) {
 
 	// Setup the routes
 	templateEngine := html.New("./web/view", ".html")
+	templateEngine.Reload(true)
 	app := fiber.New(fiber.Config{
 		AppName: "websearch",
 		Views:   templateEngine,
@@ -63,5 +77,6 @@ func Serve(addr string, sqliteFile string) {
 
 	app.Get("/", mainHandler(queryEngine))
 	app.Static("/static", "./web/static")
+
 	app.Listen(addr)
 }

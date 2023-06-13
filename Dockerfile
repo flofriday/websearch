@@ -1,4 +1,4 @@
-FROM golang:1.20
+FROM golang:1.20 AS go_builder
 
 WORKDIR /app
 
@@ -8,5 +8,16 @@ RUN go mod download && go mod verify
 
 COPY . .
 RUN go build 
+
+FROM node:20-alpine AS tailwind_builder
+COPY --from=go_builder /app /app
+WORKDIR /app
+
+RUN npm install
+RUN npx tailwindcss -i ./web/style.css -o ./web/static/style.css
+
+FROM golang:1.20
+COPY --from=tailwind_builder /app /app
+WORKDIR /app
 
 ENTRYPOINT ["./websearch"]
