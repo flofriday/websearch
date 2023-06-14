@@ -36,7 +36,17 @@ func (s *SQLIndexStore) createTables() error {
 		frequency FLOAT,
 		PRIMARY KEY(id, word)
 	);
+	`)
+	if err != nil {
+		return err
+	}
 
+	return nil
+}
+
+func (s *SQLIndexStore) Optimize() error {
+	// Create index_words table if it doesn't exist
+	_, err := s.db.Exec(`
 	CREATE INDEX IF NOT EXISTS word_idx ON index_words (word);
 	`)
 	if err != nil {

@@ -18,19 +18,20 @@ import (
 )
 
 func CrawlAndIndex(docLimit int64, sqliteFile string) {
-	numDownloaders := 100
-	numIndexers := runtime.NumCPU()
+	numIndexers := runtime.NumCPU() * 2
+	numDownloaders := numIndexers * 4
 
 	// Setup the dependencies
 	discoverQueue := queue.NewChannelQueue[*url.URL](make(chan *url.URL, 100))
 	downloadQueue := queue.NewChannelQueue[*model.Target](make(chan *model.Target, docLimit))
-	documentQueue := queue.NewChannelQueue[*model.Document](make(chan *model.Document, numIndexers*4))
+	documentQueue := queue.NewChannelQueue[*model.Document](make(chan *model.Document, numIndexers*2))
 
 	os.Remove(sqliteFile)
 	db, err := sql.Open("sqlite3", sqliteFile+"?_journal=WAL&_synchronous=OFF")
 	if err != nil {
 		log.Fatal("Unable to connect to the db!")
 	}
+	defer db.Close()
 
 	sqlDocumentStore, err := store.NewSQLDocumentStore(db)
 	if err != nil {
@@ -46,7 +47,7 @@ func CrawlAndIndex(docLimit int64, sqliteFile string) {
 	indexerPool := index.NewIndexerPool(discoverQueue, documentQueue, sqlDocumentStore, sqlIndexStore, numIndexers)
 
 	// Insert the seed into the discoverQueue
-	seed := []string{"https://en.wikipedia.org/wiki/Computer"}
+	seed := []string{"https://en.wikipedia.org/wiki/Computer", "https://en.wikipedia.org/wiki/Medicine"}
 	for _, item := range seed {
 		url, _ := url.Parse(item)
 		discoverQueue.Put(url)
@@ -83,6 +84,8 @@ func CrawlAndIndex(docLimit int64, sqliteFile string) {
 	wg.Wait()
 
 	// Print the final statistics
+	log.Println("Optimize DB")
+	sqlIndexStore.Optimize()
 	log.Println("")
 	cnt, _ := sqlDocumentStore.Count()
 	duration := time.Since(startTime)
