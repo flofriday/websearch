@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/flofriday/websearch/model"
 	"github.com/flofriday/websearch/query"
@@ -17,8 +18,8 @@ func mainHandler(queryEngine *query.QueryEngine) func(*fiber.Ctx) error {
 	type resultData struct {
 		Documents []*model.DocumentView
 		TotalDocs int64
-		//Time      time.Time
-		Query string
+		Duration  time.Duration
+		Query     string
 	}
 
 	return func(c *fiber.Ctx) error {
@@ -30,6 +31,7 @@ func mainHandler(queryEngine *query.QueryEngine) func(*fiber.Ctx) error {
 		}
 
 		// Get the results
+		startTime := time.Now()
 		queryResult, err := queryEngine.Find(query, 20)
 		if err != nil {
 			return c.Status(500).SendString(fmt.Sprintf("Could not load results: '%v'", err))
@@ -38,6 +40,7 @@ func mainHandler(queryEngine *query.QueryEngine) func(*fiber.Ctx) error {
 			Documents: queryResult.Documents,
 			TotalDocs: queryResult.TotalDocs,
 			Query:     query,
+			Duration:  time.Since(startTime),
 		}
 
 		// Render the Results
