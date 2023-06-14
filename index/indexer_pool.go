@@ -60,15 +60,13 @@ func (p *IndexerPool) indexLoop() {
 			break
 		}
 
-		documentView, words, links, err := parseHTML(document.Content)
+		documentView, words, links, err := parseHTML(document.Content, document.Url)
 		if err != nil {
 			log.Printf("WARNING: could not parse the following document %v because %v", document.Url.String(), err.Error())
 			continue
 		}
 
 		documentView.Index = document.Index
-		documentView.Url = document.Url
-		documentView.Icon = nil
 		err = p.documentStore.Put(documentView)
 		if err != nil {
 			log.Printf("WARNING: Unable to store doc %v because '%v'", documentView, err.Error())
@@ -76,16 +74,7 @@ func (p *IndexerPool) indexLoop() {
 		}
 
 		for _, link := range links {
-			tmpUrl, err := url.Parse(link)
-			if err != nil {
-				continue
-			}
-
-			absoluteUrl := document.Url.ResolveReference(tmpUrl)
-			if !absoluteUrl.IsAbs() {
-				continue
-			}
-			p.discoverQueue.Put(absoluteUrl)
+			p.discoverQueue.Put(link)
 		}
 
 		words = fp.Map(words, query.Normalize)
@@ -94,16 +83,23 @@ func (p *IndexerPool) indexLoop() {
 	}
 }
 
-func parseHTML(text string) (*model.DocumentView, []string, []string, error) {
+func parseHTML(text string, baseURL *url.URL) (*model.DocumentView, []string, []*url.URL, error) {
 	doc, err := html.Parse(strings.NewReader(text))
 	if err != nil {
 		return nil, []string{}, nil, err
 	}
 
-	docView := &model.DocumentView{}
-	links := []string{}
+	docView := &model.DocumentView{
+		Url: baseURL,
+	}
+	links := []*url.URL{}
 	words := []string{}
+	altDesc := ""
 
+	// FIXME: We should be using a higher level HTML parser. Often there are
+	// multiple ways to extract an icon or description. And we should try them
+	// all in an order that provides the best results. This iterative parsing
+	// we try at the moment is not quite suited for that.
 	var f func(*html.Node)
 	f = func(n *html.Node) {
 		// Add title
@@ -113,15 +109,56 @@ func parseHTML(text string) (*model.DocumentView, []string, []string, error) {
 			}
 		}
 
+		// Add the description
+		if n.Type == html.ElementNode &&
+			n.Data == "meta" &&
+			fp.Any(n.Attr, func(a html.Attribute) bool {
+				return a.Key == "name" && a.Val == "description"
+			}) {
+			for _, attr := range n.Attr {
+				if attr.Key == "content" {
+					docView.Description = attr.Val
+				}
+			}
+		}
+
+		// Add favicon
+		if n.Type == html.ElementNode &&
+			n.Data == "link" &&
+			fp.Any(n.Attr, func(a html.Attribute) bool {
+				return a.Key == "rel" && a.Val == "icon"
+			}) {
+			for _, attr := range n.Attr {
+				if attr.Key == "href" {
+					icon, err := parseUrlFrom(attr.Val, baseURL)
+					if err != nil {
+						break
+					}
+					docView.Icon = icon
+				}
+			}
+		}
+
+		// Sumup all text
 		if n.Type == html.TextNode {
 			words = append(words, strings.Split(n.Data, " ")...)
+
+			// FIXME: This really doesn't work but we really need a better html
+			// parser for this.
+			if len(altDesc) < 350 {
+				altDesc += n.Data + " "
+			}
 		}
 
 		// Add discovered links
 		if n.Type == html.ElementNode && n.Data == "a" {
 			for _, a := range n.Attr {
 				if a.Key == "href" {
-					links = append(links, a.Val)
+					link, err := parseUrlFrom(a.Val, baseURL)
+					if err != nil {
+						continue
+					}
+					links = append(links, link)
 					break
 				}
 			}
@@ -136,6 +173,9 @@ func parseHTML(text string) (*model.DocumentView, []string, []string, error) {
 	}
 	f(doc)
 
+	if docView.Description == "" {
+		docView.Description = altDesc + "..."
+	}
 	return docView, words, links, nil
 }
 
@@ -149,4 +189,18 @@ func getInnerText(n *html.Node) string {
 		}
 	}
 	return text
+}
+
+func parseUrlFrom(link string, baseURL *url.URL) (*url.URL, error) {
+	tmpUrl, err := url.Parse(link)
+	if err != nil {
+		return nil, err
+	}
+
+	absoluteUrl := baseURL.ResolveReference(tmpUrl)
+	if !absoluteUrl.IsAbs() {
+		return nil, err
+	}
+
+	return absoluteUrl, err
 }

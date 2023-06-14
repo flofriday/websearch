@@ -66,6 +66,8 @@ func (p *DownloaderPool) downloadLoop() {
 			break
 		}
 
+		// FIXME: Security-wise we must dissallow any requests that are to our
+		// local network
 		resp, err := client.Get(target.Url.String())
 		if err != nil {
 			log.Printf("WARNING: Could not download: %v\n", target.Url.String())

@@ -26,12 +26,19 @@
         </div>
 
         {{range .Documents}}
-        <div class="py-3 ">
-            <span class="font-bold text-lg">{{.Title}}</span>
-            <br>
-            <a class="text-blue-500" href="{{.Url}}">{{.Url}}</a>
-            {{.Description}}
-        </div>
+        <a href="{{.Url}}">
+            <div class="py-3 ">
+                <span class="font-bold text-lg">{{.Title}}</span>
+                <br>
+                <img src="{{.Icon}}" alt="" style="height: 1.2em; display: inline; vertical-align: middle;">
+                <a class="text-blue-500 align-middle" href="{{.Url}}">
+                    {{.Url}}
+                </a>
+                <p class="text-slate-700">
+                    {{.Description}}
+                </p>
+            </div>
+        </a>
         {{end}}
         </div>
     </main>
