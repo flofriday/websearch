@@ -19,7 +19,7 @@ import (
 
 func CrawlAndIndex(docLimit int64, sqliteFile string) {
 	numIndexers := runtime.NumCPU() * 2
-	numDownloaders := numIndexers * 4
+	numDownloaders := numIndexers * 5
 
 	// Setup the dependencies
 	discoverQueue := queue.NewChannelQueue[*url.URL](make(chan *url.URL, 100))

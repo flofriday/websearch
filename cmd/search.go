@@ -14,6 +14,7 @@ func Search(sqliteFile string, queryText string) {
 	if err != nil {
 		log.Fatal("Unable to connect to the db!")
 	}
+	defer db.Close()
 
 	sqlDocumentStore, err := store.NewSQLDocumentStore(db)
 	if err != nil {
