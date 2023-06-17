@@ -16,7 +16,7 @@ import (
 
 func mainHandler(queryEngine *query.QueryEngine) func(*fiber.Ctx) error {
 	type resultData struct {
-		Documents []*model.DocumentView
+		Documents []*model.Document
 		TotalDocs int64
 		Duration  time.Duration
 		Query     string

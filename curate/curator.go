@@ -4,29 +4,45 @@ import (
 	"log"
 	"net/url"
 	"strings"
+	"sync"
 
 	"github.com/flofriday/websearch/model"
 	"github.com/flofriday/websearch/queue"
 )
 
 type Curator struct {
-	input  queue.Queue[*url.URL]
-	output queue.Queue[*model.Target]
+	discoverQueue queue.Queue[*url.URL]
+	requestQueue  queue.Queue[*model.Request]
+	responseQueue queue.Queue[*model.Response]
+	documentQueue queue.Queue[*model.Response]
 
 	// FIXME: If that ever becomes a bottle-neck, a tries datastucture would fit
 	// quite nice for this usecase.
-	seenURLs  map[string]bool
-	idCounter int64
-	limit     int64
+	seenURLs    map[string]bool
+	indexedURLs map[string]bool
+	idCounter   int64
+	limit       int64
+	lock        sync.RWMutex
 }
 
-func NewCurator(input queue.Queue[*url.URL], output queue.Queue[*model.Target], limit int64) *Curator {
+// FIXME: The constructor here makes sense but since it need so many arguments
+// maybe a single option argument would be nicer
+func NewCurator(
+	discoverQueue queue.Queue[*url.URL],
+	requestQueue queue.Queue[*model.Request],
+	responseQueue queue.Queue[*model.Response],
+	documentQueue queue.Queue[*model.Response],
+	limit int64,
+) *Curator {
 	return &Curator{
-		input:     input,
-		output:    output,
-		seenURLs:  map[string]bool{},
-		idCounter: 0,
-		limit:     limit,
+		discoverQueue: discoverQueue,
+		requestQueue:  requestQueue,
+		responseQueue: responseQueue,
+		documentQueue: documentQueue,
+		seenURLs:      map[string]bool{},
+		indexedURLs:   map[string]bool{},
+		idCounter:     0,
+		limit:         limit,
 	}
 }
 
@@ -43,30 +59,61 @@ func isUseful(link *url.URL) bool {
 	return true
 }
 
+func (c *Curator) addSeenURL(link *url.URL) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	c.seenURLs[link.String()] = true
+}
+
+func (c *Curator) hasSeenURL(link *url.URL) bool {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	_, ok := c.seenURLs[link.String()]
+	return ok
+}
+
 func (c *Curator) Run() {
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		c.curateDiscover()
+		wg.Done()
+	}()
+	go func() {
+		c.curateResponse()
+		wg.Done()
+	}()
+	wg.Wait()
+
+	log.Println("Currator done")
+}
+
+// Curate the discovered URLs and decide which should be passed on to the
+// request queue and which ones should be filtered out.
+func (c *Curator) curateDiscover() {
 	for {
-		url, err := c.input.Get()
+		uri, err := c.discoverQueue.Get()
 		if err != nil {
 			log.Println("Curator is exiting, discoverqueue broken")
 			break
 		}
-		url = normalize(url)
+		uri = normalize(uri)
 
-		if !isUseful(url) {
+		if !isUseful(uri) {
 			continue
 		}
 
-		if _, ok := c.seenURLs[url.String()]; ok {
+		if c.hasSeenURL(uri) {
 			// Already seen
 			continue
 		}
-		c.seenURLs[url.String()] = true
+		c.addSeenURL(uri)
 
 		// FIXME: Add additional url filters here
 
-		target := &model.Target{
+		target := &model.Request{
 			Index: c.idCounter,
-			Url:   url,
+			Url:   uri,
 		}
 		c.idCounter++
 
@@ -77,20 +124,56 @@ func (c *Curator) Run() {
 			break
 		}
 
-		c.output.Put(target)
+		c.requestQueue.Put(target)
 	}
 
 	// Close the output queue because we have submitted enough documents
-	log.Println("Close download queue")
-	c.output.Close()
+	log.Println("Close request queue")
+	c.requestQueue.Close()
 
 	// Keep draining the discover queue
 	for {
-		_, err := c.input.Get()
+		_, err := c.discoverQueue.Get()
 		if err != nil {
 			break
 		}
 	}
+}
 
-	log.Println("Currator done")
+// Curate the response queue and decide which of those should be indexed.
+// Here we need to filter the URL again because of redirects and we can also maybe
+// filter the body somewhat.
+func (c *Curator) curateResponse() {
+	for {
+		response, err := c.responseQueue.Get()
+		if err != nil {
+			break
+		}
+
+		uri := normalize(response.Url)
+
+		if !isUseful(uri) {
+			continue
+		}
+
+		if _, ok := c.indexedURLs[uri.String()]; ok {
+			// Already indexed
+			continue
+		}
+
+		c.addSeenURL(uri)
+		c.indexedURLs[uri.String()] = true
+		for _, redirectUri := range response.Redirected {
+			c.addSeenURL(redirectUri)
+			c.indexedURLs[redirectUri.String()] = true
+		}
+
+		// FIXME: Add additional url filters here
+
+		c.documentQueue.Put(response)
+	}
+
+	// Close the output queue because we have submitted enough documents
+	log.Println("Close document queue")
+	c.documentQueue.Close()
 }

@@ -62,7 +62,7 @@ and open it with `pprof` (the flamegraph is quite helpful).
 
 ```bash
 ./websearch index -n 500 --profile
-pprof -http="localhost:7000" cpu.prof
+go tool pprof -http="localhost:7000" cpu.prof
 ```
 
 ## Architecture

@@ -23,8 +23,9 @@ func CrawlAndIndex(docLimit int64, sqliteFile string) {
 
 	// Setup the dependencies
 	discoverQueue := queue.NewChannelQueue[*url.URL](make(chan *url.URL, 100))
-	downloadQueue := queue.NewChannelQueue[*model.Target](make(chan *model.Target, docLimit))
-	documentQueue := queue.NewChannelQueue[*model.Document](make(chan *model.Document, numIndexers*2))
+	requestQueue := queue.NewChannelQueue[*model.Request](make(chan *model.Request, docLimit))
+	responseQueue := queue.NewChannelQueue[*model.Response](make(chan *model.Response, 100))
+	documentQueue := queue.NewChannelQueue[*model.Response](make(chan *model.Response, numIndexers*2))
 
 	os.Remove(sqliteFile)
 	db, err := sql.Open("sqlite3", sqliteFile+"?_journal=WAL&_synchronous=OFF")
@@ -42,8 +43,8 @@ func CrawlAndIndex(docLimit int64, sqliteFile string) {
 		log.Fatalf("Unable to connect to the index store '%v'\n", err)
 	}
 
-	curator := curate.NewCurator(discoverQueue, downloadQueue, docLimit)
-	downloaderPool := download.NewDownloaderPool(discoverQueue, downloadQueue, documentQueue, numDownloaders)
+	curator := curate.NewCurator(discoverQueue, requestQueue, responseQueue, documentQueue, docLimit)
+	downloaderPool := download.NewDownloaderPool(requestQueue, responseQueue, numDownloaders)
 	indexerPool := index.NewIndexerPool(discoverQueue, documentQueue, sqlDocumentStore, sqlIndexStore, numIndexers)
 
 	// Insert the seed into the discoverQueue
@@ -75,9 +76,10 @@ func CrawlAndIndex(docLimit int64, sqliteFile string) {
 		for {
 			cnt, _ := sqlDocumentStore.Count()
 			s1, _ := discoverQueue.Size()
-			s2, _ := downloadQueue.Size()
-			s3, _ := documentQueue.Size()
-			log.Printf("Completed: %v, DiscoverQ: %v, DownloadQ: %v, DocumentQ: %v", cnt, s1, s2, s3)
+			s2, _ := requestQueue.Size()
+			s3, _ := responseQueue.Size()
+			s4, _ := documentQueue.Size()
+			log.Printf("Completed: %v, DiscoverQ: %v, RequestQ: %v, ResponseQ: %v, DocumentQ: %v", cnt, s1, s2, s3, s4)
 			time.Sleep(time.Millisecond * 1000)
 		}
 	}()
@@ -86,6 +88,7 @@ func CrawlAndIndex(docLimit int64, sqliteFile string) {
 	// Print the final statistics
 	log.Println("Optimize DB")
 	sqlIndexStore.Optimize()
+	db.Exec("")
 	log.Println("")
 	cnt, _ := sqlDocumentStore.Count()
 	duration := time.Since(startTime)

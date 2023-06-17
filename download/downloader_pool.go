@@ -13,22 +13,19 @@ import (
 )
 
 type DownloaderPool struct {
-	downloadQueue queue.Queue[*model.Target]
-	discoverQueue queue.Queue[*url.URL]
-	documentQueue queue.Queue[*model.Document]
+	requestQueue  queue.Queue[*model.Request]
+	responseQueue queue.Queue[*model.Response]
 	workerCount   int
 }
 
 func NewDownloaderPool(
-	discoverQueue queue.Queue[*url.URL],
-	downloadQueue queue.Queue[*model.Target],
-	documentQueue queue.Queue[*model.Document],
+	requestQueue queue.Queue[*model.Request],
+	responseQueue queue.Queue[*model.Response],
 	workerCount int,
 ) *DownloaderPool {
 	return &DownloaderPool{
-		downloadQueue: downloadQueue,
-		discoverQueue: discoverQueue,
-		documentQueue: documentQueue,
+		requestQueue:  requestQueue,
+		responseQueue: responseQueue,
 		workerCount:   workerCount,
 	}
 }
@@ -43,7 +40,7 @@ func (p *DownloaderPool) Run() {
 		}()
 	}
 	wg.Wait()
-	p.documentQueue.Close()
+	p.responseQueue.Close()
 	log.Println("DownloadPool Done")
 }
 
@@ -61,31 +58,40 @@ func (p *DownloaderPool) downloadLoop() {
 	client := p.newClient()
 
 	for {
-		target, err := p.downloadQueue.Get()
+		request, err := p.requestQueue.Get()
 		if err != nil {
 			break
 		}
 
+		redirects := []*url.URL{}
+		client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+			for _, req := range via {
+				redirects = append(redirects, req.URL)
+			}
+			return nil
+		}
+
 		// FIXME: Security-wise we must dissallow any requests that are to our
 		// local network
-		resp, err := client.Get(target.Url.String())
+		resp, err := client.Get(request.Url.String())
 		if err != nil {
-			log.Printf("WARNING: Could not download: %v\n", target.Url.String())
+			log.Printf("WARNING: Could not download: %v\n", request.Url.String())
 			continue
 		}
 		body, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
 		if err != nil {
-			log.Printf("WARNING: Could not download: %v\n", target.Url.String())
+			log.Printf("WARNING: Could not download: %v\n", request.Url.String())
 			continue
 		}
 
 		// FIXME: can this fail, if it is not valid utf-8?
 		content := string(body)
-		p.documentQueue.Put(&model.Document{
-			Index:   target.Index,
-			Url:     resp.Request.URL,
-			Content: content,
+		p.responseQueue.Put(&model.Response{
+			Index:      request.Index,
+			Url:        resp.Request.URL,
+			Content:    content,
+			Redirected: redirects,
 		})
 	}
 }

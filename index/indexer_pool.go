@@ -17,7 +17,7 @@ import (
 
 type IndexerPool struct {
 	discoverQueue queue.Queue[*url.URL]
-	documentQueue queue.Queue[*model.Document]
+	documentQueue queue.Queue[*model.Response]
 	documentStore store.DocumentStore
 	indexStore    store.IndexStore
 	workerCount   int
@@ -25,7 +25,7 @@ type IndexerPool struct {
 
 func NewIndexerPool(
 	discoverQueue queue.Queue[*url.URL],
-	documentQueue queue.Queue[*model.Document],
+	documentQueue queue.Queue[*model.Response],
 	documentStore store.DocumentStore,
 	indexStore store.IndexStore,
 	workerCount int,
@@ -55,21 +55,21 @@ func (p *IndexerPool) Run() {
 
 func (p *IndexerPool) indexLoop() {
 	for {
-		document, err := p.documentQueue.Get()
+		response, err := p.documentQueue.Get()
 		if err != nil {
 			break
 		}
 
-		documentView, words, links, err := parseHTML(document.Content, document.Url)
+		document, words, links, err := parseHTML(response.Content, response.Url)
 		if err != nil {
 			log.Printf("WARNING: could not parse the following document %v because %v", document.Url.String(), err.Error())
 			continue
 		}
 
-		documentView.Index = document.Index
-		err = p.documentStore.Put(documentView)
+		document.Index = response.Index
+		err = p.documentStore.Put(document)
 		if err != nil {
-			log.Printf("WARNING: Unable to store doc %v because '%v'", documentView, err.Error())
+			log.Printf("WARNING: Unable to store doc %v because '%v'", document, err.Error())
 			continue
 		}
 
@@ -83,13 +83,13 @@ func (p *IndexerPool) indexLoop() {
 	}
 }
 
-func parseHTML(text string, baseURL *url.URL) (*model.DocumentView, []string, []*url.URL, error) {
+func parseHTML(text string, baseURL *url.URL) (*model.Document, []string, []*url.URL, error) {
 	doc, err := html.Parse(strings.NewReader(text))
 	if err != nil {
 		return nil, []string{}, nil, err
 	}
 
-	docView := &model.DocumentView{
+	docView := &model.Document{
 		Url: baseURL,
 	}
 	links := []*url.URL{}

@@ -15,7 +15,7 @@ type QueryEngine struct {
 }
 
 type QueryResult struct {
-	Documents []*model.DocumentView
+	Documents []*model.Document
 	TotalDocs int64
 }
 

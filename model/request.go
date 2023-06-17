@@ -2,7 +2,7 @@ package model
 
 import "net/url"
 
-type Target struct {
+type Request struct {
 	Index int64
 	Url   *url.URL
 }

@@ -61,7 +61,7 @@ func (s *SQLDocumentStore) createTables() error {
 	return nil
 }
 
-func (s *SQLDocumentStore) Put(doc *model.DocumentView) error {
+func (s *SQLDocumentStore) Put(doc *model.Document) error {
 	icon := ""
 	if doc.Icon != nil {
 		icon = doc.Icon.String()
@@ -75,10 +75,10 @@ func (s *SQLDocumentStore) Put(doc *model.DocumentView) error {
 	return nil
 }
 
-func (s *SQLDocumentStore) Get(index int64) (*model.DocumentView, error) {
+func (s *SQLDocumentStore) Get(index int64) (*model.Document, error) {
 	row := s.getStmt.QueryRow(index)
 
-	doc := &model.DocumentView{}
+	doc := &model.Document{}
 	var urlStr, iconStr string
 
 	err := row.Scan(&doc.Title, &doc.Description, &urlStr, &iconStr)
@@ -104,7 +104,7 @@ func (s *SQLDocumentStore) Get(index int64) (*model.DocumentView, error) {
 	return doc, nil
 }
 
-func (s *SQLDocumentStore) GetAll(index []int64) ([]*model.DocumentView, error) {
+func (s *SQLDocumentStore) GetAll(index []int64) ([]*model.Document, error) {
 	// FIXME: this should work, but doesn't, enabling this should however
 	// improve performance.
 	return fp.MapErr(index, s.Get)
