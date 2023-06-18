@@ -5,21 +5,21 @@ go 1.20
 require (
 	github.com/mattn/go-sqlite3 v1.14.17
 	github.com/urfave/cli/v2 v2.25.5
-	golang.org/x/net v0.10.0
 	golang.org/x/text v0.9.0
 )
 
 require (
 	github.com/antchfx/xpath v1.2.3 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
+	golang.org/x/net v0.8.0 // indirect
 )
 
 require (
 	github.com/andybalholm/brotli v1.0.5 // indirect
 	github.com/antchfx/htmlquery v1.3.0
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
-	github.com/gofiber/fiber/v2 v2.46.0 // indirect
-	github.com/gofiber/template v1.8.1 // indirect
+	github.com/gofiber/fiber/v2 v2.46.0
+	github.com/gofiber/template v1.8.1
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/klauspost/compress v1.16.3 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
