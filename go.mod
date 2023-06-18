@@ -10,7 +10,13 @@ require (
 )
 
 require (
+	github.com/antchfx/xpath v1.2.3 // indirect
+	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
+)
+
+require (
 	github.com/andybalholm/brotli v1.0.5 // indirect
+	github.com/antchfx/htmlquery v1.3.0
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/gofiber/fiber/v2 v2.46.0 // indirect
 	github.com/gofiber/template v1.8.1 // indirect

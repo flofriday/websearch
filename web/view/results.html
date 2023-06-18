@@ -28,13 +28,15 @@
         {{range .Documents}}
         <a href="{{.Url}}">
             <div class="py-3 ">
-                <span class="font-bold text-lg">{{.Title}}</span>
+                <a class="font-bold text-xl text-blue-500 visited:text-indigo-500" href="{{.Url}}">
+                    {{.Title}}
+                </a>
                 <br>
-                <img src="{{.Icon}}" alt="" style="height: 1.2em; display: inline; vertical-align: middle;">
-                <a class="text-blue-500 align-middle" href="{{.Url}}">
+                <img src="{{.Icon}}" alt="" style="height: 1em; display: inline; vertical-align: middle;">
+                <a class="align-middle text-slate-700 text-sm" href="{{.Url}}">
                     {{.Url}}
                 </a>
-                <p class="text-slate-700">
+                <p class="text-sm">
                     {{.Description}}
                 </p>
             </div>

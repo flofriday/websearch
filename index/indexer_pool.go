@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	"golang.org/x/net/html"
+	"github.com/antchfx/htmlquery"
 
 	"github.com/flofriday/websearch/fp"
 	"github.com/flofriday/websearch/model"
@@ -14,6 +14,8 @@ import (
 	"github.com/flofriday/websearch/queue"
 	"github.com/flofriday/websearch/store"
 )
+
+const DESCRIPTION_LEN = 200
 
 type IndexerPool struct {
 	discoverQueue queue.Queue[*url.URL]
@@ -84,111 +86,79 @@ func (p *IndexerPool) indexLoop() {
 }
 
 func parseHTML(text string, baseURL *url.URL) (*model.Document, []string, []*url.URL, error) {
-	doc, err := html.Parse(strings.NewReader(text))
+
+	doc, err := htmlquery.Parse(strings.NewReader(text))
 	if err != nil {
-		return nil, []string{}, nil, err
+		return nil, nil, nil, err
 	}
+	body := htmlquery.FindOne(doc, "//body")
+	bodyText := htmlquery.InnerText(body)
 
-	docView := &model.Document{
-		Url: baseURL,
-	}
+	// Find all links this documents links to
 	links := []*url.URL{}
-	words := []string{}
-	altDesc := ""
+	anchors := htmlquery.Find(body, "//a/@href")
+	for _, anchor := range anchors {
+		href := htmlquery.SelectAttr(anchor, "href")
+		link, err := parseUrlFrom(href, baseURL)
+		if err != nil {
+			continue
+		}
+		links = append(links, link)
+	}
 
-	// FIXME: We should be using a higher level HTML parser. Often there are
-	// multiple ways to extract an icon or description. And we should try them
-	// all in an order that provides the best results. This iterative parsing
-	// we try at the moment is not quite suited for that.
-	var f func(*html.Node)
-	f = func(n *html.Node) {
-		// Add title
-		if n.Type == html.ElementNode && n.Data == "title" {
-			if docView.Title == "" {
-				docView.Title = getInnerText(n)
-			}
+	// Find the title
+	document := &model.Document{
+		Title:       "",
+		Description: "",
+		Url:         baseURL,
+	}
+	if title := htmlquery.FindOne(doc, "//title"); title != nil {
+		document.Title = htmlquery.InnerText(title)
+	}
+	if document.Title == "" {
+		document.Title = baseURL.String()
+	}
+
+	// We can try to find the first p tag and  read it's contents. I played a
+	// lot around with other search engines and I think this is how most do it
+	// some like google seem to have a more sophisticated algorithm, which I
+	// couldn't figure out, but maybe the are using AI.
+	pTags := htmlquery.Find(body, "//p")
+	for _, p := range pTags {
+		pText := strings.TrimSpace(htmlquery.InnerText(p))
+		if pText == "" {
+			continue
 		}
 
-		// Add the description
-		if n.Type == html.ElementNode &&
-			n.Data == "meta" &&
-			fp.Any(n.Attr, func(a html.Attribute) bool {
-				return a.Key == "name" && a.Val == "description"
-			}) {
-			for _, attr := range n.Attr {
-				if attr.Key == "content" {
-					docView.Description = attr.Val
-				}
-			}
+		// FIXME: A better trim-off algorithm is needed. One that respects
+		// unicode and splits on word boundaries
+		if len(pText) > DESCRIPTION_LEN {
+			pText = pText[:DESCRIPTION_LEN] + "..."
 		}
+		document.Description = pText
+		break
+	}
 
-		// Add favicon
-		if n.Type == html.ElementNode &&
-			n.Data == "link" &&
-			fp.Any(n.Attr, func(a html.Attribute) bool {
-				return a.Key == "rel" && a.Val == "icon"
-			}) {
-			for _, attr := range n.Attr {
-				if attr.Key == "href" {
-					icon, err := parseUrlFrom(attr.Val, baseURL)
-					if err != nil {
-						break
-					}
-					docView.Icon = icon
-				}
-			}
-		}
-
-		// Sumup all text
-		if n.Type == html.TextNode {
-			words = append(words, strings.Split(n.Data, " ")...)
-
-			// FIXME: This really doesn't work but we really need a better html
-			// parser for this.
-			if len(altDesc) < 350 {
-				altDesc += n.Data + " "
-			}
-		}
-
-		// Add discovered links
-		if n.Type == html.ElementNode && n.Data == "a" {
-			for _, a := range n.Attr {
-				if a.Key == "href" {
-					link, err := parseUrlFrom(a.Val, baseURL)
-					if err != nil {
-						continue
-					}
-					links = append(links, link)
-					break
-				}
-			}
-		}
-
-		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			if n.Type == html.ElementNode && (n.Data == "style" || n.Data == "script") {
-				continue
-			}
-			f(c)
+	if document.Description == "" {
+		if len(bodyText) > DESCRIPTION_LEN {
+			document.Description = bodyText[:DESCRIPTION_LEN] + "..."
+		} else {
+			document.Description = bodyText
 		}
 	}
-	f(doc)
 
-	if docView.Description == "" {
-		docView.Description = altDesc + "..."
-	}
-	return docView, words, links, nil
-}
-
-func getInnerText(n *html.Node) string {
-	text := ""
-	if n.Type == html.TextNode {
-		text += n.Data
-	} else {
-		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			text += getInnerText(c)
+	// Find the icon
+	if iconLink := htmlquery.FindOne(doc, "//link[@rel='icon' or @rel='shortcut icon']/@href"); iconLink != nil {
+		if icon, err := parseUrlFrom(htmlquery.SelectAttr(iconLink, "href"), baseURL); err == nil {
+			document.Icon = icon
 		}
 	}
-	return text
+
+	// Get a list of words in that document
+	// FIXME: We need to split on lots more words
+	words := strings.Fields(bodyText)
+	return document, words, links, nil
+
 }
 
 func parseUrlFrom(link string, baseURL *url.URL) (*url.URL, error) {
